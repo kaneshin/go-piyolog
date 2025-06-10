@@ -195,22 +195,19 @@ function newEntry(data: Data, str: string): EntryBuilder | null {
   }
   
   let dateStr = str;
-  let format: string;
   
   switch (data.tag) {
     case Language.Japanese:
       dateStr = str.split('(')[0];
-      format = 'YYYY/M/D';
       break;
     case Language.English:
-      dateStr = str.split(', ')[1];
-      format = 'MMM D, YYYY';
+      dateStr = str.split(', ').slice(1).join(', ').trim();
       break;
     default:
       return null;
   }
   
-  const date = parseDate(dateStr, format);
+  const date = parseDate(dateStr, data.tag);
   if (!date) {
     return null;
   }
@@ -218,13 +215,13 @@ function newEntry(data: Data, str: string): EntryBuilder | null {
   return new EntryBuilder(date);
 }
 
-function parseDate(dateStr: string, format: string): Date | null {
+function parseDate(dateStr: string, lang: Language): Date | null {
   // Simple date parsing - in production, you might want to use a library like date-fns
   try {
-    if (format === 'YYYY/M/D') {
+    if (lang === Language.Japanese) {
       const parts = dateStr.split('/');
       return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    } else if (format === 'MMM D, YYYY') {
+    } else if (lang === Language.English) {
       return new Date(dateStr);
     }
     return null;
@@ -254,10 +251,18 @@ function newLog(line: string, date: Date): Log | null {
   createdAt.setHours(hours, minutes, 0, 0);
   
   // Parse the rest of the line to extract type, content, and notes
-  const parts = rest.split(/\s{2,}/);
-  const type = parts[0];
-  const content = parts[1] || '';
-  const notes = parts[2] || undefined;
+  const separator = '   '
+  const parts = rest.split(separator);
+  const subparts = parts[0].split(' ');
+  const type = subparts[0];
+  let content = '';
+  if (subparts.length > 1) {
+    content = subparts.slice(1).join(' ');
+  }
+  let notes = ''; 
+  if (parts.length > 1) {
+    notes = parts.slice(1).join(separator) || '';
+  }
   
   return {
     type,
@@ -270,6 +275,9 @@ function newLog(line: string, date: Date): Log | null {
 export function parse(str: string): Data {
   // Replace escape line breaks with unescaped line breaks
   str = str.replace(/\\n/g, '\n');
+  if (str === '') {
+    throw new Error('Empty input');
+  }
   
   // Add separator to handle as monthly data
   let exportData = `${str}\n\n${PIYOLOG_SEPARATOR}\n`;
@@ -281,10 +289,6 @@ export function parse(str: string): Data {
   );
   
   const lines = exportData.split('\n');
-  
-  if (lines.length === 0) {
-    throw new Error('Empty input');
-  }
   
   // Parse the header
   const head = lines[0].trim();
@@ -308,7 +312,10 @@ export function parse(str: string): Data {
     
     if (line.startsWith(PIYOLOG_SEPARATOR)) {
       if (entry) {
-        data.entries.push(entry.build());
+        const buildEntry = entry.build();
+        if (!isNaN(buildEntry.date.getTime())) {
+          data.entries.push(entry.build());
+        }
         entry = null;
       }
       continue;
@@ -320,7 +327,7 @@ export function parse(str: string): Data {
       entry.apply(line);
     }
   }
-  
+
   return data;
 }
 

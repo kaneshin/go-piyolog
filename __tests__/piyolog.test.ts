@@ -14,7 +14,7 @@ describe('piyolog', () => {
       const result = parse(input);
       
       expect(result.tag).toBe(Language.Japanese);
-      expect(result.entries).toHaveLength(0);
+      expect(result.entries).toHaveLength(1);
     });
 
     it('should parse English header correctly', () => {
@@ -22,7 +22,7 @@ describe('piyolog', () => {
       const result = parse(input);
       
       expect(result.tag).toBe(Language.English);
-      expect(result.entries).toHaveLength(0);
+      expect(result.entries).toHaveLength(1);
     });
 
     it('should parse unknown header correctly', () => {
